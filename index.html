@@ -259,10 +259,9 @@ import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@
 const CHUNK_SECONDS = 900; // 15 min per chunk, well under Whisper's 25MB cap at 64kbps mono
 let ffmpeg = null;
 
-async function getFFmpeg(onLog) {
+async function getFFmpeg() {
   if (ffmpeg) return ffmpeg;
   ffmpeg = new FFmpeg();
-  if (onLog) ffmpeg.on('log', ({ message }) => {});
   const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
   await ffmpeg.load({
     coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
@@ -278,17 +277,30 @@ async function getFFmpeg(onLog) {
 // Splits any audio file into ~15-minute, 64kbps mono mp3 chunks entirely in
 // the browser (via ffmpeg.wasm), so a single upload can be well over an hour
 // while every chunk sent to the Whisper API stays under its 25MB limit.
-async function splitAudio(file, onProgress) {
+async function splitAudio(file, onPercent, onChunkReady) {
   const ff = await getFFmpeg();
-  await ff.writeFile('input', await fetchFile(file));
-  await ff.exec([
-    '-i', 'input',
-    '-vn', '-ac', '1', '-ar', '16000',
-    '-c:a', 'libmp3lame', '-b:a', '64k',
-    '-f', 'segment', '-segment_time', String(CHUNK_SECONDS),
-    '-reset_timestamps', '1',
-    'chunk_%03d.mp3'
-  ]);
+  let lastLogged = -1;
+  const handler = ({ progress }) => {
+    const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+    if (pct !== lastLogged && pct % 5 === 0) {
+      lastLogged = pct;
+      if (onPercent) onPercent(pct);
+    }
+  };
+  ff.on('progress', handler);
+  try {
+    await ff.writeFile('input', await fetchFile(file));
+    await ff.exec([
+      '-i', 'input',
+      '-vn', '-ac', '1', '-ar', '16000',
+      '-c:a', 'libmp3lame', '-b:a', '64k',
+      '-f', 'segment', '-segment_time', String(CHUNK_SECONDS),
+      '-reset_timestamps', '1',
+      'chunk_%03d.mp3'
+    ]);
+  } finally {
+    ff.off('progress', handler);
+  }
   const entries = (await ff.listDir('/')).filter(e => e.name.startsWith('chunk_')).sort((a, b) => a.name.localeCompare(b.name));
   const chunks = [];
   for (let i = 0; i < entries.length; i++) {
@@ -298,7 +310,7 @@ async function splitAudio(file, onProgress) {
       offset: i * CHUNK_SECONDS
     });
     await ff.deleteFile(entries[i].name);
-    if (onProgress) onProgress(i + 1, entries.length);
+    if (onChunkReady) onChunkReady(i + 1, entries.length);
   }
   await ff.deleteFile('input');
   return chunks;
@@ -398,7 +410,15 @@ document.getElementById('run').addEventListener('click', async () => {
     } else {
       log('Loading in-browser audio splitter (first run only, ~30 MB)…');
       log('Splitting audio into chunks…');
-      chunks = await splitAudio(chosenFile, (done, total) => log(`  chunk ${done}/${total} ready`));
+      let lastPctLine = null;
+      chunks = await splitAudio(
+        chosenFile,
+        (pct) => {
+          if (lastPctLine) lastPctLine.textContent = `  splitting: ${pct}%`;
+          else { lastPctLine = document.createElement('div'); lastPctLine.textContent = `  splitting: ${pct}%`; logEl.appendChild(lastPctLine); }
+        },
+        (done, total) => log(`  chunk ${done}/${total} ready`)
+      );
       log(`Split into ${chunks.length} chunk(s).`, 'ok');
     }
 
