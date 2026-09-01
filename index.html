@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transcript Bench</title>
+<style>
+  :root {
+    --bg: #14161B;
+    --panel: #1B1E25;
+    --panel-line: #2A2E38;
+    --text: #ECE8DD;
+    --text-dim: #8D8F98;
+    --amber: #E8A33D;
+    --amber-dim: #6B5427;
+    --teal: #4C8C8C;
+    --red: #C1594C;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  .track {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--panel-line);
+    overflow: hidden;
+  }
+  .track span {
+    display: block;
+    width: 3px;
+    background: var(--amber-dim);
+    border-radius: 1px;
+  }
+
+  header {
+    padding: 40px 32px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    color: var(--text-dim);
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 560px;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px 64px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 760px) {
+    main { grid-template-columns: 320px 1fr; align-items: start; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 6px;
+    padding: 22px;
+  }
+  .panel + .panel { margin-top: 0; }
+
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 7px;
+    font-family: var(--mono);
+  }
+  input[type=text], input[type=password], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--panel-line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+  input:focus, select:focus, button:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 1px;
+  }
+
+  .drop {
+    border: 1px dashed var(--panel-line);
+    border-radius: 4px;
+    padding: 22px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease;
+  }
+  .drop:hover, .drop.drag { border-color: var(--amber); }
+  .drop input { display: none; }
+  .drop .fname { font-size: 13px; color: var(--text); word-break: break-all; }
+  .drop .hint { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  button.run {
+    width: 100%;
+    background: var(--amber);
+    color: #201705;
+    border: none;
+    padding: 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button.run:disabled { background: var(--panel-line); color: var(--text-dim); cursor: not-allowed; }
+  button.run:hover:not(:disabled) { background: #f0af52; }
+
+  .log {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    line-height: 1.7;
+    min-height: 18px;
+  }
+  .log .err { color: var(--red); }
+  .log .ok { color: var(--teal); }
+
+  .output .empty {
+    color: var(--text-dim);
+    font-size: 14px;
+    padding: 40px 10px;
+    text-align: center;
+    border: 1px dashed var(--panel-line);
+    border-radius: 4px;
+  }
+
+  .seg {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .seg:last-child { border-bottom: none; }
+  .seg time {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--amber);
+    padding-top: 2px;
+  }
+  .seg p { margin: 0; font-size: 14px; line-height: 1.5; }
+
+  .downloads {
+    display: flex; gap: 10px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--panel-line);
+  }
+  .downloads a {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--bg);
+    background: var(--teal);
+    padding: 9px 14px;
+    border-radius: 4px;
+    text-decoration: none;
+  }
+  .downloads a:hover { opacity: .88; }
+
+  .out-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .out-head h2 { font-size: 14px; margin: 0; font-family: var(--mono); font-weight: 500; color: var(--text-dim); }
+  .out-head .lang { font-size: 12px; color: var(--amber); font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<div class="track" id="track"></div>
+
+<header>
+  <h1>Transcript Bench</h1>
+  <p>Upload audio, get it transcribed and translated with timestamps, download as SRT or TXT. Runs in your browser — nothing installs, nothing is Linux.</p>
+</header>
+
+<main>
+  <div class="panel controls">
+    <div class="field">
+      <label for="apiKey">OpenAI API key</label>
+      <input type="password" id="apiKey" placeholder="sk-...">
+    </div>
+    <div class="field">
+      <label>Audio file</label>
+      <div class="drop" id="drop">
+        <input type="file" id="file" accept="audio/*">
+        <div class="fname" id="fname">Click or drop a file</div>
+        <div class="hint">MP3, WAV, M4A — up to ~90 min, split automatically in your browser</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="lang">Translate to</label>
+      <select id="lang">
+        <option value="English">English</option>
+        <option value="Spanish">Spanish</option>
+        <option value="French">French</option>
+        <option value="German">German</option>
+        <option value="Portuguese">Portuguese</option>
+        <option value="Italian">Italian</option>
+        <option value="Japanese">Japanese</option>
+        <option value="Korean">Korean</option>
+        <option value="Mandarin Chinese">Mandarin Chinese</option>
+        <option value="Hindi">Hindi</option>
+        <option value="Arabic">Arabic</option>
+        <option value="Russian">Russian</option>
+      </select>
+    </div>
+    <button class="run" id="run">Transcribe &amp; translate</button>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="panel output">
+    <div class="out-head">
+      <h2 id="outTitle">OUTPUT</h2>
+      <span class="lang" id="outLang"></span>
+    </div>
+    <div id="results"><div class="empty">Results will appear here, segment by segment, once processing finishes.</div></div>
+    <div class="downloads" id="downloads" style="display:none;">
+      <a id="dlSrt" download="transcript.srt">Download .srt</a>
+      <a id="dlTxt" download="transcript.txt">Download .txt</a>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm';
+import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm';
+
+const CHUNK_SECONDS = 900; // 15 min per chunk, well under Whisper's 25MB cap at 64kbps mono
+let ffmpeg = null;
+
+async function getFFmpeg(onLog) {
+  if (ffmpeg) return ffmpeg;
+  ffmpeg = new FFmpeg();
+  if (onLog) ffmpeg.on('log', ({ message }) => {});
+  const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm')
+  });
+  return ffmpeg;
+}
+
+// Splits any audio file into ~15-minute, 64kbps mono mp3 chunks entirely in
+// the browser (via ffmpeg.wasm), so a single upload can be well over an hour
+// while every chunk sent to the Whisper API stays under its 25MB limit.
+async function splitAudio(file, onProgress) {
+  const ff = await getFFmpeg();
+  await ff.writeFile('input', await fetchFile(file));
+  await ff.exec([
+    '-i', 'input',
+    '-vn', '-ac', '1', '-ar', '16000',
+    '-c:a', 'libmp3lame', '-b:a', '64k',
+    '-f', 'segment', '-segment_time', String(CHUNK_SECONDS),
+    '-reset_timestamps', '1',
+    'chunk_%03d.mp3'
+  ]);
+  const entries = (await ff.listDir('/')).filter(e => e.name.startsWith('chunk_')).sort((a, b) => a.name.localeCompare(b.name));
+  const chunks = [];
+  for (let i = 0; i < entries.length; i++) {
+    const data = await ff.readFile(entries[i].name);
+    chunks.push({
+      blob: new Blob([data.buffer], { type: 'audio/mpeg' }),
+      offset: i * CHUNK_SECONDS
+    });
+    await ff.deleteFile(entries[i].name);
+    if (onProgress) onProgress(i + 1, entries.length);
+  }
+  await ff.deleteFile('input');
+  return chunks;
+}
+
+// decorative waveform bar
+(function(){
+  const track = document.getElementById('track');
+  const n = 140;
+  for (let i=0;i<n;i++){
+    const s = document.createElement('span');
+    const h = 4 + Math.round(18 * Math.abs(Math.sin(i*0.35)) * (0.4 + Math.random()*0.6));
+    s.style.height = h + 'px';
+    track.appendChild(s);
+  }
+})();
+
+const fileInput = document.getElementById('file');
+const drop = document.getElementById('drop');
+const fname = document.getElementById('fname');
+let chosenFile = null;
+
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  chosenFile = fileInput.files[0] || null;
+  fname.textContent = chosenFile ? chosenFile.name : 'Click or drop a file';
+});
+['dragover','dragleave','drop'].forEach(evt => {
+  drop.addEventListener(evt, e => {
+    e.preventDefault();
+    drop.classList.toggle('drag', evt === 'dragover');
+    if (evt === 'drop' && e.dataTransfer.files[0]) {
+      chosenFile = e.dataTransfer.files[0];
+      fname.textContent = chosenFile.name;
+    }
+  });
+});
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+}
+function clearLog() { logEl.innerHTML = ''; }
+
+function fmtSrtTime(sec) {
+  const ms = Math.round((sec % 1) * 1000);
+  const totalSec = Math.floor(sec);
+  const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+  const s = String(totalSec % 60).padStart(2,'0');
+  return `${h}:${m}:${s},${String(ms).padStart(3,'0')}`;
+}
+function fmtPlainTime(sec) {
+  const totalSec = Math.floor(sec);
+  const h = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+  const s = String(totalSec % 60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+
+async function translateBatch(apiKey, texts, targetLanguage) {
+  const res = await fetch('/api/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey, texts, targetLanguage })
+  });
+  if (!res.ok) throw new Error('Translation request failed (' + res.status + ')');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'Translation error');
+  let content = data.choices[0].message.content.trim();
+  content = content.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+  const arr = JSON.parse(content);
+  if (!Array.isArray(arr) || arr.length !== texts.length) throw new Error('Translation batch size mismatch');
+  return arr;
+}
+
+document.getElementById('run').addEventListener('click', async () => {
+  clearLog();
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const targetLanguage = document.getElementById('lang').value;
+  const runBtn = document.getElementById('run');
+  document.getElementById('downloads').style.display = 'none';
+  document.getElementById('results').innerHTML = '';
+
+  if (!apiKey) { log('Enter your OpenAI API key.', 'err'); return; }
+  if (!chosenFile) { log('Choose an audio file.', 'err'); return; }
+
+  runBtn.disabled = true;
+  try {
+    let chunks;
+    if (chosenFile.size <= 24 * 1024 * 1024) {
+      // Small enough to send as-is, skip the ffmpeg pass entirely.
+      chunks = [{ blob: chosenFile, offset: 0 }];
+    } else {
+      log('Loading in-browser audio splitter (first run only, ~30 MB)…');
+      log('Splitting audio into chunks…');
+      chunks = await splitAudio(chosenFile, (done, total) => log(`  chunk ${done}/${total} ready`));
+      log(`Split into ${chunks.length} chunk(s).`, 'ok');
+    }
+
+    const segments = [];
+    let detectedLang = null;
+    for (let i = 0; i < chunks.length; i++) {
+      log(`Transcribing chunk ${i + 1}/${chunks.length}…`);
+      const form = new FormData();
+      form.append('file', chunks[i].blob, `chunk_${i}.mp3`);
+      form.append('apiKey', apiKey);
+      const tRes = await fetch('/api/transcribe', { method: 'POST', body: form });
+      const tData = await tRes.json();
+      if (!tRes.ok || tData.error) throw new Error((tData.error && tData.error.message) || `Transcription failed on chunk ${i + 1}`);
+      detectedLang = detectedLang || tData.language;
+      for (const seg of (tData.segments || [])) {
+        segments.push({ start: seg.start + chunks[i].offset, end: seg.end + chunks[i].offset, text: seg.text });
+      }
+    }
+    if (!segments.length) throw new Error('No speech segments detected.');
+    log(`Transcribed ${segments.length} segments total (detected: ${detectedLang || 'unknown'}).`, 'ok');
+
+    log(`Translating to ${targetLanguage}…`);
+    const BATCH = 40;
+    const translated = [];
+    for (let i = 0; i < segments.length; i += BATCH) {
+      const chunk = segments.slice(i, i + BATCH).map(s => s.text.trim());
+      const out = await translateBatch(apiKey, chunk, targetLanguage);
+      translated.push(...out);
+      log(`  translated ${Math.min(i + BATCH, segments.length)}/${segments.length}`);
+    }
+    log('Done.', 'ok');
+
+    document.getElementById('outLang').textContent = targetLanguage.toUpperCase();
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+    let srt = '', txt = '';
+    segments.forEach((seg, i) => {
+      const text = translated[i];
+      const row = document.createElement('div');
+      row.className = 'seg';
+      row.innerHTML = `<time>${fmtPlainTime(seg.start)}</time><p></p>`;
+      row.querySelector('p').textContent = text;
+      results.appendChild(row);
+
+      srt += `${i + 1}\n${fmtSrtTime(seg.start)} --> ${fmtSrtTime(seg.end)}\n${text}\n\n`;
+      txt += `[${fmtPlainTime(seg.start)} - ${fmtPlainTime(seg.end)}] ${text}\n`;
+    });
+
+    const srtUrl = URL.createObjectURL(new Blob([srt], { type: 'text/plain' }));
+    const txtUrl = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
+    document.getElementById('dlSrt').href = srtUrl;
+    document.getElementById('dlTxt').href = txtUrl;
+    document.getElementById('downloads').style.display = 'flex';
+  } catch (e) {
+    log(String(e.message || e), 'err');
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
